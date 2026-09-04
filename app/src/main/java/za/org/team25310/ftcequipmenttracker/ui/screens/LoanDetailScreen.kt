@@ -42,19 +42,22 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import za.org.team25310.ftcequipmenttracker.data.model.AppUser
 import za.org.team25310.ftcequipmenttracker.data.model.LoanEvent
 import za.org.team25310.ftcequipmenttracker.data.model.LoanStatus
 import za.org.team25310.ftcequipmenttracker.ui.LoansViewModel
+import za.org.team25310.ftcequipmenttracker.ui.UserViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoanDetailScreen(
     loanId: String,
     onBack: () -> Unit,
-    loansViewModel: LoansViewModel = viewModel(),
+    loansViewModel: LoansViewModel,
+    userViewModel: UserViewModel,
 ) {
     val loans by loansViewModel.loans.collectAsState()
+    val user by userViewModel.user.collectAsState()
     val loan = loans.firstOrNull { it.id == loanId }
 
     Scaffold(
@@ -81,6 +84,7 @@ fun LoanDetailScreen(
         } else {
             LoanDetailContent(
                 loan = loan,
+                user = user,
                 onUpdate = { loansViewModel.updateLoan(it) },
             )
         }
@@ -90,8 +94,13 @@ fun LoanDetailScreen(
 @Composable
 private fun LoanDetailContent(
     loan: LoanEvent,
+    user: AppUser?,
     onUpdate: (LoanEvent) -> Unit,
 ) {
+    val isLoanerAuthority = user != null && user.isAuthority && user.teamId == loan.loanerTeamNumber
+    val isBorrowerAuthority = user != null && user.isAuthority && user.teamId == loan.borrowerTeamNumber
+    val isAuthority = isLoanerAuthority || isBorrowerAuthority
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -137,11 +146,13 @@ private fun LoanDetailContent(
         CoachConfirmation(
             label = "Loaner coach (#${loan.loanerTeamNumber})",
             confirmed = loan.loanerCoachConfirmed,
+            canConfirm = isLoanerAuthority,
             onConfirm = { onUpdate(loan.copy(loanerCoachConfirmed = true)) },
         )
         CoachConfirmation(
             label = "Borrower coach (#${loan.borrowerTeamNumber})",
             confirmed = loan.borrowerCoachConfirmed,
+            canConfirm = isBorrowerAuthority,
             onConfirm = { onUpdate(loan.copy(borrowerCoachConfirmed = true)) },
         )
 
@@ -151,25 +162,31 @@ private fun LoanDetailContent(
         SignatureSection(
             title = "Loaner captain signature",
             base64 = loan.loanerSignature,
+            canSign = isLoanerAuthority,
             onSigned = { bmp -> onUpdate(loan.copy(loanerSignature = bitmapToBase64(bmp))) },
         )
         SignatureSection(
             title = "Borrower captain signature",
             base64 = loan.borrowerSignature,
+            canSign = isBorrowerAuthority,
             onSigned = { bmp -> onUpdate(loan.copy(borrowerSignature = bitmapToBase64(bmp))) },
         )
 
         HorizontalDivider()
 
-        if (loan.status != LoanStatus.RETURNED) {
-            Button(
-                onClick = { onUpdate(loan.copy(status = LoanStatus.RETURNED)) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Mark as returned")
+        when {
+            loan.status == LoanStatus.RETURNED -> {
+                Text("Returned", color = MaterialTheme.colorScheme.secondary)
             }
-        } else {
-            Text("Returned", color = MaterialTheme.colorScheme.secondary)
+
+            isAuthority -> {
+                Button(
+                    onClick = { onUpdate(loan.copy(status = LoanStatus.RETURNED)) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Mark as returned")
+                }
+            }
         }
     }
 }
@@ -178,6 +195,7 @@ private fun LoanDetailContent(
 private fun CoachConfirmation(
     label: String,
     confirmed: Boolean,
+    canConfirm: Boolean,
     onConfirm: () -> Unit,
 ) {
     Row(
@@ -186,10 +204,14 @@ private fun CoachConfirmation(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
-        if (confirmed) {
-            Text("Confirmed", color = MaterialTheme.colorScheme.primary)
-        } else {
-            Button(onClick = onConfirm) { Text("Confirm") }
+        when {
+            confirmed -> Text("Confirmed", color = MaterialTheme.colorScheme.primary)
+            canConfirm -> Button(onClick = onConfirm) { Text("Confirm") }
+            else -> Text(
+                "Awaiting confirmation",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }
@@ -198,6 +220,7 @@ private fun CoachConfirmation(
 private fun SignatureSection(
     title: String,
     base64: String,
+    canSign: Boolean,
     onSigned: (android.graphics.Bitmap) -> Unit,
 ) {
     val existing = remember(base64) { base64ToBitmap(base64) }
@@ -207,45 +230,57 @@ private fun SignatureSection(
 
     Text(title, style = MaterialTheme.typography.bodyMedium)
 
-    if (existing != null) {
-        Image(
-            bitmap = existing.asImageBitmap(),
-            contentDescription = title,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color.White),
-        )
-    } else {
-        SignaturePad(
-            strokes = strokes,
-            currentStroke = currentStroke,
-            onStrokeStart = { currentStroke = listOf(it) },
-            onStrokeMove = { p -> currentStroke = currentStroke + p },
-            onStrokeEnd = {
-                if (currentStroke.isNotEmpty()) {
-                    strokes.add(currentStroke)
-                    currentStroke = emptyList()
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp)
-                .onSizeChanged { padSize = it },
-        )
+    when {
+        existing != null -> {
+            Image(
+                bitmap = existing.asImageBitmap(),
+                contentDescription = title,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White),
+            )
+        }
 
-        Spacer(Modifier.height(8.dp))
+        canSign -> {
+            SignaturePad(
+                strokes = strokes,
+                currentStroke = currentStroke,
+                onStrokeStart = { currentStroke = listOf(it) },
+                onStrokeMove = { p -> currentStroke = currentStroke + p },
+                onStrokeEnd = {
+                    if (currentStroke.isNotEmpty()) {
+                        strokes.add(currentStroke)
+                        currentStroke = emptyList()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .onSizeChanged { padSize = it },
+            )
 
-        Button(
-            onClick = {
-                val bmp = renderSignatureBitmap(strokes.toList(), padSize)
-                if (bmp != null) onSigned(bmp)
-            },
-            enabled = strokes.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Confirm signature")
+            Spacer(Modifier.height(8.dp))
+
+            Button(
+                onClick = {
+                    val bmp = renderSignatureBitmap(strokes.toList(), padSize)
+                    if (bmp != null) onSigned(bmp)
+                },
+                enabled = strokes.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Confirm signature")
+            }
+        }
+
+        else -> {
+            Text(
+                "Awaiting signature",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

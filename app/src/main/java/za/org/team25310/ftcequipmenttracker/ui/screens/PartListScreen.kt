@@ -30,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import za.org.team25310.ftcequipmenttracker.data.model.Vendor
 import za.org.team25310.ftcequipmenttracker.ui.CatalogViewModel
 
@@ -38,7 +37,7 @@ import za.org.team25310.ftcequipmenttracker.ui.CatalogViewModel
 @Composable
 fun PartListScreen(
     onBack: () -> Unit,
-    viewModel: CatalogViewModel = viewModel(),
+    viewModel: CatalogViewModel,
 ) {
     val parts by viewModel.parts.collectAsState()
     var vendorFilter by remember { mutableStateOf<Vendor?>(null) }

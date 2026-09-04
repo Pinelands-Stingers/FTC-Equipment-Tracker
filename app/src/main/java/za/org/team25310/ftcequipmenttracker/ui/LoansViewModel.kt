@@ -3,23 +3,39 @@ package za.org.team25310.ftcequipmenttracker.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.io.File
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import za.org.team25310.ftcequipmenttracker.data.LoansRepository
 import za.org.team25310.ftcequipmenttracker.data.model.LoanEvent
+import za.org.team25310.ftcequipmenttracker.data.model.LoanStatus
 
 class LoansViewModel : ViewModel() {
-    val loans: StateFlow<List<LoanEvent>> = LoansRepository.observeLoans()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _loans = MutableStateFlow<List<LoanEvent>>(emptyList())
+    val loans: StateFlow<List<LoanEvent>> = _loans
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
+
+    private var teamId: String? = null
+    private var loansJob: Job? = null
+
+    fun setTeamId(id: String) {
+        if (teamId == id) return
+        teamId = id
+        loansJob?.cancel()
+        loansJob = viewModelScope.launch {
+            LoansRepository.observeLoans(id)
+                .catch { e -> _error.value = e.message ?: "Failed to load loans" }
+                .collect { _loans.value = it }
+        }
+    }
 
     fun saveLoan(event: LoanEvent, photoFile: File?, onDone: (String) -> Unit) {
         viewModelScope.launch {
@@ -40,8 +56,17 @@ class LoansViewModel : ViewModel() {
     }
 
     fun updateLoan(event: LoanEvent) {
+        val updated = if (
+            event.status == LoanStatus.PENDING_CONFIRMATION &&
+            event.loanerCoachConfirmed &&
+            event.borrowerCoachConfirmed
+        ) {
+            event.copy(status = LoanStatus.ACTIVE)
+        } else {
+            event
+        }
         viewModelScope.launch {
-            runCatching { LoansRepository.saveLoan(event) }
+            runCatching { LoansRepository.saveLoan(updated) }
                 .onFailure { _error.value = it.message ?: "Update failed" }
         }
     }

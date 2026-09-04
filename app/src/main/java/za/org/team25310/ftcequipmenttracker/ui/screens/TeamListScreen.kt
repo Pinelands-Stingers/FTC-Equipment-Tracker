@@ -22,14 +22,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import za.org.team25310.ftcequipmenttracker.ui.CatalogViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TeamListScreen(
     onBack: () -> Unit,
-    viewModel: CatalogViewModel = viewModel(),
+    viewModel: CatalogViewModel,
 ) {
     val teams by viewModel.teams.collectAsState()
 

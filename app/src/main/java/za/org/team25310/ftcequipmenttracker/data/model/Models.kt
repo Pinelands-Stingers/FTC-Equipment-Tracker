@@ -49,6 +49,38 @@ enum class LoanStatus {
     }
 }
 
+enum class Role(val label: String) {
+    COACH("Coach"),
+    CAPTAIN("Captain"),
+    MEMBER("Member");
+
+    companion object {
+        fun from(value: String?): Role =
+            entries.firstOrNull { it.name == value } ?: MEMBER
+    }
+}
+
+data class AppUser(
+    val uid: String = "",
+    val teamId: String = "",
+    val role: Role = Role.MEMBER,
+    val displayName: String = "",
+    val createdAt: Long = 0L,
+) {
+    val isAuthority: Boolean
+        get() = role == Role.COACH || role == Role.CAPTAIN
+
+    companion object {
+        fun fromMap(uid: String, map: Map<String, Any?>): AppUser = AppUser(
+            uid = uid,
+            teamId = map["teamId"] as? String ?: "",
+            role = Role.from(map["role"] as? String),
+            displayName = map["displayName"] as? String ?: "",
+            createdAt = map["createdAt"] as? Long ?: 0L,
+        )
+    }
+}
+
 data class LoanEvent(
     val id: String = "",
     val partId: String = "",
@@ -59,6 +91,7 @@ data class LoanEvent(
     val loanerTeamName: String = "",
     val borrowerTeamNumber: String = "",
     val borrowerTeamName: String = "",
+    val teamIds: List<String> = emptyList(),
     val loanDate: Long = 0L,
     val dueDate: Long = 0L,
     val location: String = "",
@@ -81,6 +114,7 @@ data class LoanEvent(
         "loanerTeamName" to loanerTeamName,
         "borrowerTeamNumber" to borrowerTeamNumber,
         "borrowerTeamName" to borrowerTeamName,
+        "teamIds" to teamIds,
         "loanDate" to loanDate,
         "dueDate" to dueDate,
         "location" to location,
@@ -106,6 +140,7 @@ data class LoanEvent(
             loanerTeamName = map["loanerTeamName"] as? String ?: "",
             borrowerTeamNumber = map["borrowerTeamNumber"] as? String ?: "",
             borrowerTeamName = map["borrowerTeamName"] as? String ?: "",
+            teamIds = (map["teamIds"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
             loanDate = map["loanDate"] as? Long ?: 0L,
             dueDate = map["dueDate"] as? Long ?: 0L,
             location = map["location"] as? String ?: "",

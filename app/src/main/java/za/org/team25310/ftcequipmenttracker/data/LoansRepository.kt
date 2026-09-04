@@ -3,7 +3,6 @@ package za.org.team25310.ftcequipmenttracker.data
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
-import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import java.io.ByteArrayOutputStream
@@ -21,17 +20,17 @@ object LoansRepository {
     private val db = Firebase.firestore
     private val collection = db.collection("loans")
 
-    fun observeLoans(): Flow<List<LoanEvent>> = callbackFlow {
+    fun observeLoans(teamId: String): Flow<List<LoanEvent>> = callbackFlow {
         val registration = collection
-            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .whereArrayContains("teamIds", teamId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
                     return@addSnapshotListener
                 }
-                val loans = snapshot?.documents.orEmpty().mapNotNull { doc ->
-                    LoanEvent.fromMap(doc.id, doc.data ?: emptyMap())
-                }
+                val loans = snapshot?.documents.orEmpty()
+                    .mapNotNull { doc -> LoanEvent.fromMap(doc.id, doc.data ?: emptyMap()) }
+                    .sortedByDescending { it.createdAt }
                 trySend(loans)
             }
         awaitClose { registration.remove() }

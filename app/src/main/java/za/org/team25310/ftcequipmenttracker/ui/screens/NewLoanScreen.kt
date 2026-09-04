@@ -29,7 +29,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,11 +39,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import java.io.File
-import za.org.team25310.ftcequipmenttracker.data.AppConfig
 import za.org.team25310.ftcequipmenttracker.data.model.LoanEvent
 import za.org.team25310.ftcequipmenttracker.data.model.LoanStatus
 import za.org.team25310.ftcequipmenttracker.data.model.Part
@@ -52,24 +49,26 @@ import za.org.team25310.ftcequipmenttracker.data.model.Team
 import za.org.team25310.ftcequipmenttracker.data.model.Vendor
 import za.org.team25310.ftcequipmenttracker.ui.CatalogViewModel
 import za.org.team25310.ftcequipmenttracker.ui.LoansViewModel
+import za.org.team25310.ftcequipmenttracker.ui.UserViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewLoanScreen(
     onDone: () -> Unit,
-    catalogViewModel: CatalogViewModel = viewModel(),
-    loansViewModel: LoansViewModel = viewModel(),
+    catalogViewModel: CatalogViewModel,
+    loansViewModel: LoansViewModel,
+    userViewModel: UserViewModel,
 ) {
     val context = LocalContext.current
     val parts by catalogViewModel.parts.collectAsState()
     val teams by catalogViewModel.teams.collectAsState()
+    val user by userViewModel.user.collectAsState()
 
     var selectedPart by remember { mutableStateOf<Part?>(null) }
     var isCustom by remember { mutableStateOf(false) }
     var customName by remember { mutableStateOf("") }
     var customSku by remember { mutableStateOf("") }
 
-    var loaner by remember { mutableStateOf<Team?>(null) }
     var borrower by remember { mutableStateOf<Team?>(null) }
     var loanDate by remember { mutableStateOf(0L) }
     var dueDate by remember { mutableStateOf(0L) }
@@ -81,14 +80,14 @@ fun NewLoanScreen(
 
     val busy by loansViewModel.busy.collectAsState()
 
-    LaunchedEffect(teams) {
-        if (loaner == null && teams.isNotEmpty()) {
-            loaner = teams.firstOrNull { it.teamNumber == AppConfig.MY_TEAM_NUMBER } ?: AppConfig.myTeam
-        }
-    }
+    val loanerTeam = teams.firstOrNull { it.teamNumber == user?.teamId }
+
+    var pendingUri by remember { mutableStateOf<Uri?>(null) }
 
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (!success) {
+        if (success) {
+            photoUri = pendingUri
+        } else {
             photoUri = null
             photoFile = null
         }
@@ -99,7 +98,7 @@ fun NewLoanScreen(
         val file = File(dir, "photo_${System.currentTimeMillis()}.jpg")
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         photoFile = file
-        photoUri = uri
+        pendingUri = uri
         takePicture.launch(uri)
     }
 
@@ -177,12 +176,10 @@ fun NewLoanScreen(
 
             HorizontalDivider()
 
-            SelectField(
-                label = "Loaner (lending out)",
-                options = teams,
-                selected = loaner,
-                optionLabel = { it.displayName },
-                onSelect = { loaner = it },
+            Text("Loaner (lending out)", style = MaterialTheme.typography.labelMedium)
+            Text(
+                text = loanerTeam?.displayName ?: "#${user?.teamId.orEmpty()}",
+                style = MaterialTheme.typography.bodyLarge,
             )
             SelectField(
                 label = "Borrower (receiving)",
@@ -238,10 +235,11 @@ fun NewLoanScreen(
                         partName = partName,
                         sku = sku,
                         vendor = vendor,
-                        loanerTeamNumber = loaner?.teamNumber.orEmpty(),
-                        loanerTeamName = loaner?.name.orEmpty(),
+                        loanerTeamNumber = user?.teamId.orEmpty(),
+                        loanerTeamName = loanerTeam?.name.orEmpty(),
                         borrowerTeamNumber = borrower?.teamNumber.orEmpty(),
                         borrowerTeamName = borrower?.name.orEmpty(),
+                        teamIds = listOfNotNull(user?.teamId, borrower?.teamNumber).distinct(),
                         loanDate = loanDate,
                         dueDate = dueDate,
                         location = location,
@@ -254,7 +252,7 @@ fun NewLoanScreen(
                 },
                 enabled = !busy &&
                     (if (isCustom) customName.isNotBlank() else selectedPart != null) &&
-                    loaner != null &&
+                    user != null &&
                     borrower != null &&
                     loanDate > 0L &&
                     dueDate > 0L,

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -34,11 +35,39 @@ fun LoginScreen(
     val user by viewModel.user.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val emailVerified by viewModel.emailVerified.collectAsState()
 
-    LaunchedEffect(user) {
-        if (user != null) onLoggedIn()
+    LaunchedEffect(user, emailVerified) {
+        if (user != null && emailVerified) onLoggedIn()
     }
 
+    val currentUser = user
+    if (currentUser != null && !emailVerified) {
+        VerifyEmailScreen(
+            email = currentUser.email,
+            loading = loading,
+            error = error,
+            onResend = { viewModel.resendVerification() },
+            onContinue = { viewModel.refreshVerification() },
+            onSignOut = { viewModel.signOut() },
+        )
+    } else {
+        SignInForm(
+            loading = loading,
+            error = error,
+            onSignIn = { email, password -> viewModel.signIn(email, password) },
+            onSignUp = { email, password -> viewModel.signUp(email, password) },
+        )
+    }
+}
+
+@Composable
+private fun SignInForm(
+    loading: Boolean,
+    error: String?,
+    onSignIn: (String, String) -> Unit,
+    onSignUp: (String, String) -> Unit,
+) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isSignUp by remember { mutableStateOf(false) }
@@ -81,7 +110,7 @@ fun LoginScreen(
             Spacer(Modifier.height(24.dp))
             Button(
                 onClick = {
-                    if (isSignUp) viewModel.signUp(email, password) else viewModel.signIn(email, password)
+                    if (isSignUp) onSignUp(email, password) else onSignIn(email, password)
                 },
                 enabled = !loading && email.isNotBlank() && password.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
@@ -91,6 +120,62 @@ fun LoginScreen(
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = { isSignUp = !isSignUp }) {
                 Text(if (isSignUp) "Already have an account? Sign in" else "New team? Create an account")
+            }
+        }
+    }
+}
+
+@Composable
+private fun VerifyEmailScreen(
+    email: String?,
+    loading: Boolean,
+    error: String?,
+    onResend: () -> Unit,
+    onContinue: () -> Unit,
+    onSignOut: () -> Unit,
+) {
+    Scaffold { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Verify your email", style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "We sent a verification link to ${email ?: "your email"}. " +
+                    "Open the link, then tap the button below to continue.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(24.dp))
+
+            error?.let {
+                Spacer(Modifier.height(12.dp))
+                Text(it, color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(12.dp))
+            }
+
+            Button(
+                onClick = onContinue,
+                enabled = !loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (loading) "Checking..." else "I've verified my email")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onResend,
+                enabled = !loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Resend verification email")
+            }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onSignOut) {
+                Text("Use a different account")
             }
         }
     }

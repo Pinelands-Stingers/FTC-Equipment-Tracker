@@ -1,0 +1,2 @@
+# FTC-Equipment-Tracker
+FTC Equipment Tracker(Team #25310 Pinelands Stingers) — an Android app for FTC teams to log parts loaned between teams. Pick a part (goBILDA/REV/Studica or custom), record teams, dates, location, and a photo. Both coaches confirm and captains sign on their own devices, with reminders before each return date.

@@ -1,0 +1,128 @@
+[
+  {
+    "id": "gobilda-5203-19",
+    "sku": "5203-2402-0019",
+    "name": "5203 Series Yellow Jacket Planetary Gear Motor (19.2:1, 312 RPM, 3.3-5V Encoder)",
+    "vendor": "GOBILDA",
+    "category": "Motor",
+    "ftcLegal": true,
+    "aliases": ["Motor", "Yellow Jacket", "YJ 312"]
+  },
+  {
+    "id": "gobilda-5203-05",
+    "sku": "5203-2402-0005",
+    "name": "5203 Series Yellow Jacket Planetary Gear Motor (5.2:1, 1150 RPM)",
+    "vendor": "GOBILDA",
+    "category": "Motor",
+    "ftcLegal": true,
+    "aliases": ["Fast Motor", "Yellow Jacket 5.2"]
+  },
+  {
+    "id": "gobilda-5203-50",
+    "sku": "5203-2402-0050",
+    "name": "5203 Series Yellow Jacket Planetary Gear Motor (50.9:1, 117 RPM)",
+    "vendor": "GOBILDA",
+    "category": "Motor",
+    "ftcLegal": true,
+    "aliases": ["Torque Motor", "Yellow Jacket 50.9"]
+  },
+  {
+    "id": "gobilda-5203-139",
+    "sku": "5203-2402-0139",
+    "name": "5203 Series Yellow Jacket Planetary Gear Motor (139:1, 43 RPM)",
+    "vendor": "GOBILDA",
+    "category": "Motor",
+    "ftcLegal": true,
+    "aliases": ["High Torque Motor", "Yellow Jacket 139"]
+  },
+  {
+    "id": "gobilda-dual-mode-servo",
+    "sku": "2000-0025-0002",
+    "name": "goBILDA Dual Mode Servo (25-2 Torque)",
+    "vendor": "GOBILDA",
+    "category": "Servo",
+    "ftcLegal": true,
+    "aliases": ["Servo"]
+  },
+  {
+    "id": "gobilda-mecanum-96",
+    "sku": "2601-0012-0062",
+    "name": "goBILDA 96mm Mecanum Wheel (Single)",
+    "vendor": "GOBILDA",
+    "category": "Wheel",
+    "ftcLegal": true,
+    "aliases": ["Mecanum Wheel"]
+  },
+  {
+    "id": "rev-control-hub",
+    "sku": "REV-21-1650",
+    "name": "REV Robotics Control Hub",
+    "vendor": "REV",
+    "category": "Electronics",
+    "ftcLegal": true,
+    "aliases": ["Control Hub", "CH"]
+  },
+  {
+    "id": "rev-expansion-hub",
+    "sku": "REV-31-1595",
+    "name": "REV Robotics Expansion Hub",
+    "vendor": "REV",
+    "category": "Electronics",
+    "ftcLegal": true,
+    "aliases": ["Expansion Hub", "EH"]
+  },
+  {
+    "id": "rev-driver-hub",
+    "sku": "REV-21-2585",
+    "name": "REV Robotics Driver Hub",
+    "vendor": "REV",
+    "category": "Electronics",
+    "ftcLegal": true,
+    "aliases": ["Driver Hub", "DH"]
+  },
+  {
+    "id": "rev-hd-hex-20",
+    "sku": "REV-41-1300",
+    "name": "REV Robotics HD Hex Motor (20:1)",
+    "vendor": "REV",
+    "category": "Motor",
+    "ftcLegal": true,
+    "aliases": ["HD Hex 20"]
+  },
+  {
+    "id": "rev-hd-hex-40",
+    "sku": "REV-41-1301",
+    "name": "REV Robotics HD Hex Motor (40:1)",
+    "vendor": "REV",
+    "category": "Motor",
+    "ftcLegal": true,
+    "aliases": ["HD Hex 40"]
+  },
+  {
+    "id": "studica-example-1",
+    "sku": "TBD-0001",
+    "name": "Studica FTC sample part (verify SKU)",
+    "vendor": "STUDICA",
+    "category": "Sample",
+    "ftcLegal": true,
+    "aliases": []
+  },
+  {
+    "id": "custom-3d-bracket",
+    "sku": "",
+    "name": "3D Printed Mounting Bracket",
+    "vendor": "CUSTOM",
+    "category": "3D Printed",
+    "ftcLegal": true,
+    "aliases": ["Bracket"]
+  },
+  {
+    "id": "custom-screw-kit",
+    "sku": "",
+    "name": "Off-the-shelf M3 Screw Assortment",
+    "vendor": "CUSTOM",
+    "category": "Hardware",
+    "ftcLegal": true,
+    "aliases": ["M3 Screws"]
+  }
+]

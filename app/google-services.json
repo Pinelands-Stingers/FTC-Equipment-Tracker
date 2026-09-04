@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "405800874573",
+    "project_id": "ftc-25310-equipment-tracker",
+    "storage_bucket": "ftc-25310-equipment-tracker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:405800874573:android:b7896c8a0e944793882204",
+        "android_client_info": {
+          "package_name": "za.org.team25310.ftcequipmenttracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADDM4dHBkxITe6lyCTc8sL3xsYLDqf6f4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -11,6 +11,7 @@ import za.org.team25310.ftcequipmenttracker.ui.AuthViewModel
 import za.org.team25310.ftcequipmenttracker.ui.CatalogViewModel
 import za.org.team25310.ftcequipmenttracker.ui.LoansViewModel
 import za.org.team25310.ftcequipmenttracker.ui.UserViewModel
+import za.org.team25310.ftcequipmenttracker.ui.screens.AboutScreen
 import za.org.team25310.ftcequipmenttracker.ui.screens.LoanDetailScreen
 import za.org.team25310.ftcequipmenttracker.ui.screens.LoanListScreen
 import za.org.team25310.ftcequipmenttracker.ui.screens.LoginScreen
@@ -24,6 +25,7 @@ sealed class Screen(val route: String) {
     data object Parts : Screen("parts")
     data object Loans : Screen("loans")
     data object NewLoan : Screen("new_loan")
+    data object About : Screen("about")
     data object LoanDetail : Screen("loan_detail/{loanId}") {
         fun withId(id: String) = "loan_detail/$id"
     }
@@ -53,6 +55,7 @@ fun FtcNavHost() {
                 onTeams = { navController.navigate(Screen.Teams.route) },
                 onParts = { navController.navigate(Screen.Parts.route) },
                 onOpenLoan = { id -> navController.navigate(Screen.LoanDetail.withId(id)) },
+                onAbout = { navController.navigate(Screen.About.route) },
                 onSignedOut = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -75,6 +78,9 @@ fun FtcNavHost() {
                 onBack = { navController.popBackStack() },
                 viewModel = catalogViewModel,
             )
+        }
+        composable(Screen.About.route) {
+            AboutScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.NewLoan.route) {
             NewLoanScreen(

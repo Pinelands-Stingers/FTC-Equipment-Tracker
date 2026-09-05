@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +59,7 @@ fun LoanListScreen(
     onTeams: () -> Unit,
     onParts: () -> Unit,
     onOpenLoan: (String) -> Unit,
+    onAbout: () -> Unit,
     onSignedOut: () -> Unit,
     loansViewModel: LoansViewModel,
     authViewModel: AuthViewModel,
@@ -93,6 +95,7 @@ fun LoanListScreen(
                         actions = {
                             IconButton(onClick = onParts) { Icon(Icons.Filled.Build, contentDescription = "Parts") }
                             IconButton(onClick = onTeams) { Icon(Icons.Filled.List, contentDescription = "Teams") }
+                            IconButton(onClick = onAbout) { Icon(Icons.Filled.Info, contentDescription = "About") }
                             IconButton(onClick = {
                                 authViewModel.signOut()
                                 onSignedOut()

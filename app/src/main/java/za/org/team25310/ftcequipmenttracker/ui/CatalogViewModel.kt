@@ -20,11 +20,28 @@ class CatalogViewModel(app: Application) : AndroidViewModel(app) {
     private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading
 
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error
+
     init {
         viewModelScope.launch {
             _parts.value = CatalogRepository.loadParts(getApplication())
             _teams.value = CatalogRepository.loadTeams(getApplication())
             _loading.value = false
+        }
+    }
+
+    fun refreshTeams() {
+        viewModelScope.launch {
+            _refreshing.value = true
+            _error.value = null
+            runCatching { CatalogRepository.refreshTeams(getApplication()) }
+                .onSuccess { _teams.value = it }
+                .onFailure { _error.value = it.message ?: "Refresh failed" }
+            _refreshing.value = false
         }
     }
 }

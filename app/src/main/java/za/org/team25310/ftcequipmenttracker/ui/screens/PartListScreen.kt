@@ -18,7 +18,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -40,9 +42,13 @@ fun PartListScreen(
     viewModel: CatalogViewModel,
 ) {
     val parts by viewModel.parts.collectAsState()
+    val partsLoading by viewModel.partsLoading.collectAsState()
     var vendorFilter by remember { mutableStateOf<Vendor?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
-    val filtered = if (vendorFilter == null) parts else parts.filter { it.vendor == vendorFilter }
+    val filtered = parts.filter { part ->
+        (vendorFilter == null || part.vendor == vendorFilter) && part.matchesQuery(searchQuery)
+    }
 
     Scaffold(
         topBar = {
@@ -61,11 +67,23 @@ fun PartListScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            if (partsLoading) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = { Text("Search name, SKU or tag") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FilterChip(
@@ -86,7 +104,7 @@ fun PartListScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(filtered) { part ->
+                items(filtered, key = { it.id }) { part ->
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp)) {
                             Text(part.name, style = MaterialTheme.typography.titleMedium)
@@ -97,6 +115,12 @@ fun PartListScreen(
                             if (part.aliases.isNotEmpty()) {
                                 Text(
                                     "Aliases: ${part.aliases.joinToString(", ")}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            if (part.tags.isNotEmpty()) {
+                                Text(
+                                    "Tags: ${part.tags.joinToString(", ")}",
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }

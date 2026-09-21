@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class Vendor(val displayName: String) {
+    ANDYMARK("AndyMark"),
     GOBILDA("goBILDA"),
     REV("REV Robotics"),
     STUDICA("Studica"),
@@ -24,6 +25,8 @@ data class Part(
     val category: String = "",
     val ftcLegal: Boolean = true,
     val aliases: List<String> = emptyList(),
+    val tags: List<String> = emptyList(),
+    val url: String = "",
 )
 
 data class Team(

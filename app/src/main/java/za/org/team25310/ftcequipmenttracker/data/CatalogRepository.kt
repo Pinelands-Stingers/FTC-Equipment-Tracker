@@ -8,7 +8,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import za.org.team25310.ftcequipmenttracker.data.model.FtcTeam
-import za.org.team25310.ftcequipmenttracker.data.model.Part
 import za.org.team25310.ftcequipmenttracker.data.model.Team
 
 object CatalogRepository {
@@ -17,11 +16,6 @@ object CatalogRepository {
     private const val CACHE_MAX_AGE_MS = 24L * 60L * 60L * 1000L
 
     private val json = Json { ignoreUnknownKeys = true }
-
-    suspend fun loadParts(context: Context): List<Part> = withContext(Dispatchers.IO) {
-        val text = context.assets.open("parts.json").bufferedReader().use { it.readText() }
-        json.decodeFromString<List<Part>>(text)
-    }
 
     suspend fun loadTeams(context: Context): List<Team> = withContext(Dispatchers.IO) {
         val cached = loadCachedTeams(context)

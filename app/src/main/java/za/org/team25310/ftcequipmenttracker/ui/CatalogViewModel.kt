@@ -7,12 +7,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import za.org.team25310.ftcequipmenttracker.data.CatalogRepository
+import za.org.team25310.ftcequipmenttracker.data.PartsRepository
 import za.org.team25310.ftcequipmenttracker.data.model.Part
 import za.org.team25310.ftcequipmenttracker.data.model.Team
 
 class CatalogViewModel(app: Application) : AndroidViewModel(app) {
     private val _parts = MutableStateFlow<List<Part>>(emptyList())
     val parts: StateFlow<List<Part>> = _parts
+
+    private val _partsLoading = MutableStateFlow(true)
+    val partsLoading: StateFlow<Boolean> = _partsLoading
 
     private val _teams = MutableStateFlow<List<Team>>(emptyList())
     val teams: StateFlow<List<Team>> = _teams
@@ -28,7 +32,11 @@ class CatalogViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            _parts.value = CatalogRepository.loadParts(getApplication())
+            runCatching { PartsRepository.loadParts(getApplication()) }
+                .onSuccess { _parts.value = it }
+                .onFailure { _error.value = it.message }
+            _partsLoading.value = false
+
             _teams.value = CatalogRepository.loadTeams(getApplication())
             _loading.value = false
         }

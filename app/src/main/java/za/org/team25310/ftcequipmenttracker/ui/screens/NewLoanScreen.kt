@@ -165,11 +165,10 @@ fun NewLoanScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
-                SelectField(
+                PartPickerField(
                     label = "Select part",
-                    options = parts,
+                    parts = parts,
                     selected = selectedPart,
-                    optionLabel = { it.name },
                     onSelect = { selectedPart = it },
                 )
             }

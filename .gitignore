@@ -30,3 +30,8 @@ out/
 __pycache__/
 *.pyc
 tools/catalog/data/.state/
+
+# Firebase service account private keys (never commit)
+*serviceAccount*.json
+*service-account*.json
+firebase-adminsdk-*.json

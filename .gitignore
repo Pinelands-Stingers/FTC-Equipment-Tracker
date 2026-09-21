@@ -35,3 +35,8 @@ tools/catalog/data/.state/
 *serviceAccount*.json
 *service-account*.json
 firebase-adminsdk-*.json
+
+# Release signing material (never commit)
+*.jks
+*.keystore
+keystore.properties

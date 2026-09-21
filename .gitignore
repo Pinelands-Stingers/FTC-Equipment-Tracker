@@ -25,3 +25,8 @@ captures/
 bin/
 gen/
 out/
+
+# Python / catalog tooling
+__pycache__/
+*.pyc
+tools/catalog/data/.state/

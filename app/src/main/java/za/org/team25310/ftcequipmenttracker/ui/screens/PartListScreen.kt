@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -30,8 +31,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import za.org.team25310.ftcequipmenttracker.data.model.Part
 import za.org.team25310.ftcequipmenttracker.data.model.Vendor
 import za.org.team25310.ftcequipmenttracker.ui.CatalogViewModel
 
@@ -45,9 +48,18 @@ fun PartListScreen(
     val partsLoading by viewModel.partsLoading.collectAsState()
     var vendorFilter by remember { mutableStateOf<Vendor?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+    var editingPart by remember { mutableStateOf<Part?>(null) }
 
     val filtered = parts.filter { part ->
         (vendorFilter == null || part.vendor == vendorFilter) && part.matchesQuery(searchQuery)
+    }
+
+    editingPart?.let { part ->
+        AliasEditorDialog(
+            part = part,
+            onSave = { viewModel.setAliases(part.id, it) },
+            onDismiss = { editingPart = null },
+        )
     }
 
     Scaffold(
@@ -73,7 +85,7 @@ fun PartListScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                label = { Text("Search name, SKU or tag") },
+                label = { Text("Search name, SKU, tag or alias") },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -91,7 +103,7 @@ fun PartListScreen(
                     onClick = { vendorFilter = null },
                     label = { Text("All") },
                 )
-                Vendor.entries.forEach { vendor ->
+                Vendor.entries.filter { it != Vendor.CUSTOM }.forEach { vendor ->
                     FilterChip(
                         selected = vendorFilter == vendor,
                         onClick = { vendorFilter = vendor },
@@ -106,23 +118,31 @@ fun PartListScreen(
             ) {
                 items(filtered, key = { it.id }) { part ->
                     Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(part.name, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "SKU: ${part.sku.ifBlank { "n/a" }}  |  ${part.vendor.displayName}",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            if (part.aliases.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(part.name, style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    "Aliases: ${part.aliases.joinToString(", ")}",
+                                    "SKU: ${part.sku.ifBlank { "n/a" }}  |  ${part.vendor.displayName}",
                                     style = MaterialTheme.typography.bodySmall,
                                 )
+                                if (part.aliases.isNotEmpty()) {
+                                    Text(
+                                        "Aliases: ${part.aliases.joinToString(", ")}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                                if (part.tags.isNotEmpty()) {
+                                    Text(
+                                        "Tags: ${part.tags.joinToString(", ")}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
                             }
-                            if (part.tags.isNotEmpty()) {
-                                Text(
-                                    "Tags: ${part.tags.joinToString(", ")}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
+                            IconButton(onClick = { editingPart = part }) {
+                                Icon(Icons.Filled.Edit, contentDescription = "Edit aliases")
                             }
                         }
                     }

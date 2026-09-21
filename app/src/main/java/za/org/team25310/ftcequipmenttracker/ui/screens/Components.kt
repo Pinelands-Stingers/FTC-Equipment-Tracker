@@ -8,8 +8,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,12 +20,14 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -52,6 +57,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import za.org.team25310.ftcequipmenttracker.data.model.Part
+import za.org.team25310.ftcequipmenttracker.data.model.Vendor
 
 fun formatDate(millis: Long): String =
     if (millis <= 0L) "" else SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(millis))
@@ -225,7 +231,8 @@ fun Part.matchesQuery(query: String): Boolean {
     if (q.isEmpty()) return true
     return name.lowercase().contains(q) ||
         sku.lowercase().contains(q) ||
-        tags.any { it.lowercase().contains(q) }
+        tags.any { it.lowercase().contains(q) } ||
+        aliases.any { it.lowercase().contains(q) }
 }
 
 @Composable
@@ -265,10 +272,14 @@ private fun PartPickerDialog(
     onDismiss: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    val results = remember(parts, query) {
-        val base = if (query.isBlank()) parts else parts.filter { it.matchesQuery(query) }
-        base.take(50)
+    var vendorFilter by remember { mutableStateOf<Vendor?>(null) }
+    val matches = remember(parts, query, vendorFilter) {
+        parts.filter { part ->
+            (vendorFilter == null || part.vendor == vendorFilter) && part.matchesQuery(query)
+        }
     }
+    val shown = matches.take(50)
+    val hiddenCount = matches.size - shown.size
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = MaterialTheme.shapes.medium,
@@ -283,15 +294,35 @@ private fun PartPickerDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
-                if (results.isEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = vendorFilter == null,
+                        onClick = { vendorFilter = null },
+                        label = { Text("All") },
+                    )
+                    Vendor.entries.filter { it != Vendor.CUSTOM }.forEach { vendor ->
+                        FilterChip(
+                            selected = vendorFilter == vendor,
+                            onClick = { vendorFilter = vendor },
+                            label = { Text(vendor.displayName) },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                if (shown.isEmpty()) {
                     Text("No matches", style = MaterialTheme.typography.bodySmall)
                 } else {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 360.dp),
+                            .heightIn(max = 320.dp),
                     ) {
-                        items(results, key = { it.id }) { part ->
+                        items(shown, key = { it.id }) { part ->
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -310,6 +341,14 @@ private fun PartPickerDialog(
                                 )
                             }
                         }
+                    }
+                    if (hiddenCount > 0) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "+$hiddenCount more (refine your search)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

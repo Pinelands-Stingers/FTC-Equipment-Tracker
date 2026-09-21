@@ -73,7 +73,11 @@ fun LoanListScreen(
 
     LaunchedEffect(Unit) { userViewModel.loadUser() }
     LaunchedEffect(user?.teamId) {
-        user?.teamId?.let { loansViewModel.setTeamId(it) }
+        val teamId = user?.teamId
+        if (teamId != null) {
+            loansViewModel.setTeamId(teamId)
+            catalogViewModel.setTeamId(teamId)
+        }
     }
 
     when {

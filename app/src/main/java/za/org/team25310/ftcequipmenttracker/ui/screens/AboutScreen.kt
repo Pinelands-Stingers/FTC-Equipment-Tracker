@@ -68,6 +68,17 @@ fun AboutScreen(
                     uriHandler.openUri("https://ftc-events.firstinspires.org/services/API")
                 },
             )
+
+            HorizontalDivider()
+
+            Text("Disclaimer", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "FTC Equipment Tracker is an independent project built by FTC Team #25310 and is not " +
+                    "affiliated with, endorsed by, or sponsored by goBILDA, REV Robotics, AndyMark, " +
+                    "Studica, FIRST, or any other manufacturer or organization mentioned in the app. " +
+                    "Product names, brands, and trademarks belong to their respective owners.",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

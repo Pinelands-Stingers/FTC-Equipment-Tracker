@@ -20,8 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +63,7 @@ fun LoanListScreen(
     onParts: () -> Unit,
     onOpenLoan: (String) -> Unit,
     onAbout: () -> Unit,
+    onTeamSettings: () -> Unit,
     onSignedOut: () -> Unit,
     loansViewModel: LoansViewModel,
     authViewModel: AuthViewModel,
@@ -70,6 +74,7 @@ fun LoanListScreen(
     val user by userViewModel.user.collectAsState()
     val loading by userViewModel.loading.collectAsState()
     val loansError by loansViewModel.error.collectAsState()
+    val newTeamInvite by userViewModel.newTeamInvite.collectAsState()
 
     LaunchedEffect(Unit) { userViewModel.loadUser() }
     LaunchedEffect(user?.teamId) {
@@ -99,6 +104,9 @@ fun LoanListScreen(
                         actions = {
                             IconButton(onClick = onParts) { Icon(Icons.Filled.Build, contentDescription = "Parts") }
                             IconButton(onClick = onTeams) { Icon(Icons.Filled.List, contentDescription = "Teams") }
+                            IconButton(onClick = onTeamSettings) {
+                                Icon(Icons.Filled.Group, contentDescription = "Team invite codes")
+                            }
                             IconButton(onClick = onAbout) { Icon(Icons.Filled.Info, contentDescription = "About") }
                             IconButton(onClick = {
                                 authViewModel.signOut()
@@ -147,6 +155,36 @@ fun LoanListScreen(
                         }
                     }
                 }
+            }
+
+            newTeamInvite?.let { invite ->
+                AlertDialog(
+                    onDismissRequest = { userViewModel.consumeNewTeamInvite() },
+                    title = { Text("Team account created") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                "Share these codes with your teammates. Coaches and captains use the " +
+                                    "leader code; members use the member code.",
+                            )
+                            InviteCodeRow(label = "Member code", code = invite.memberCode)
+                            InviteCodeRow(
+                                label = "Leader code (coach / captain)",
+                                code = invite.coachCode,
+                            )
+                            Text(
+                                "You can view or regenerate these later from the team icon on the " +
+                                    "loans screen.",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { userViewModel.consumeNewTeamInvite() }) {
+                            Text("Done")
+                        }
+                    },
+                )
             }
         }
     }

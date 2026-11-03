@@ -12,6 +12,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,12 +23,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -40,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -48,6 +55,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -57,10 +66,169 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import za.org.team25310.ftcequipmenttracker.data.model.Part
+import za.org.team25310.ftcequipmenttracker.data.model.TeamInfo
 import za.org.team25310.ftcequipmenttracker.data.model.Vendor
 
 fun formatDate(millis: Long): String =
     if (millis <= 0L) "" else SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(millis))
+
+fun formatInviteCode(code: String): String =
+    if (code.length == 8) "${code.substring(0, 4)}-${code.substring(4)}" else code
+
+@Composable
+fun InviteCodeRow(label: String, code: String) {
+    val clipboard = LocalClipboardManager.current
+    val formatted = remember(code) { formatInviteCode(code) }
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(formatted, style = MaterialTheme.typography.headlineSmall)
+            }
+            IconButton(onClick = { clipboard.setText(AnnotatedString(formatted)) }) {
+                Icon(Icons.Filled.ContentCopy, contentDescription = "Copy $label")
+            }
+        }
+    }
+}
+
+@Composable
+fun TeamClaimRow(
+    teamLabel: String,
+    info: TeamInfo?,
+    verificationRequired: Boolean,
+    onReport: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(teamLabel, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                if (info != null) {
+                    VerificationBadge(verified = info.verified, required = verificationRequired)
+                }
+            }
+            when {
+                info == null -> Text(
+                    "Loading team account...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                !info.claimed -> Text(
+                    "No account claimed yet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                info.claimedByEmail.isBlank() -> Text(
+                    "Claimed ${formatDate(info.claimedAt)} by an unrecorded account.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                else -> Text(
+                    "Claimed by ${info.claimedByEmail} on ${formatDate(info.claimedAt)}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (verificationRequired && info != null && !info.verified) {
+                Text(
+                    "Confirmations and signatures are paused for unverified teams.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            TextButton(
+                onClick = onReport,
+                contentPadding = PaddingValues(0.dp),
+            ) {
+                Text("Report a problem", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+}
+
+@Composable
+private fun VerificationBadge(verified: Boolean, required: Boolean) {
+    val (label, color) = when {
+        verified -> "Verified" to MaterialTheme.colorScheme.primary
+        required -> "Not verified" to MaterialTheme.colorScheme.error
+        else -> "Unverified" to MaterialTheme.colorScheme.tertiary
+    }
+    Surface(color = color.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+        )
+    }
+}
+
+@Composable
+fun ReportTeamDialog(
+    teamLabel: String,
+    onDismiss: () -> Unit,
+    onSubmit: (String) -> Unit,
+) {
+    var reason by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Report $teamLabel") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Tell an organizer what looks wrong, including anything that shows this team " +
+                        "account isn't genuine.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = { Text("What's wrong?") },
+                    supportingText = { Text("At least 10 characters.") },
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSubmit(reason.trim()) },
+                enabled = reason.trim().length >= 10,
+            ) {
+                Text("Send report")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
+}
 
 @Composable
 fun <T> SelectField(

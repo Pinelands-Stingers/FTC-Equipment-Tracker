@@ -24,8 +24,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -45,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import za.org.team25310.ftcequipmenttracker.data.model.AppUser
 import za.org.team25310.ftcequipmenttracker.data.model.LoanEvent
 import za.org.team25310.ftcequipmenttracker.data.model.LoanStatus
+import za.org.team25310.ftcequipmenttracker.data.model.TeamInfo
 import za.org.team25310.ftcequipmenttracker.ui.LoansViewModel
 import za.org.team25310.ftcequipmenttracker.ui.UserViewModel
 
@@ -58,7 +61,17 @@ fun LoanDetailScreen(
 ) {
     val loans by loansViewModel.loans.collectAsState()
     val user by userViewModel.user.collectAsState()
+    val verificationRequired by userViewModel.verificationRequired.collectAsState()
+    val teamInfoMap by userViewModel.teamInfo.collectAsState()
+    val reportMessage by userViewModel.reportMessage.collectAsState()
     val loan = loans.firstOrNull { it.id == loanId }
+    var reportTeamId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(loan?.loanerTeamNumber, loan?.borrowerTeamNumber) {
+        val teamIds = listOfNotNull(loan?.loanerTeamNumber, loan?.borrowerTeamNumber)
+            .filter { it.isNotBlank() }
+        if (teamIds.isNotEmpty()) userViewModel.loadTeamInfo(teamIds)
+    }
 
     Scaffold(
         topBar = {
@@ -85,9 +98,25 @@ fun LoanDetailScreen(
             LoanDetailContent(
                 loan = loan,
                 user = user,
+                verificationRequired = verificationRequired,
+                teamInfo = teamInfoMap,
+                reportMessage = reportMessage,
+                onReport = { reportTeamId = it },
+                onDismissReportMessage = { userViewModel.consumeReportMessage() },
                 onUpdate = { loansViewModel.updateLoan(it) },
             )
         }
+    }
+
+    reportTeamId?.let { teamId ->
+        ReportTeamDialog(
+            teamLabel = "#$teamId",
+            onDismiss = { reportTeamId = null },
+            onSubmit = { reason ->
+                userViewModel.reportTeam(teamId, reason)
+                reportTeamId = null
+            },
+        )
     }
 }
 
@@ -95,11 +124,20 @@ fun LoanDetailScreen(
 private fun LoanDetailContent(
     loan: LoanEvent,
     user: AppUser?,
+    verificationRequired: Boolean,
+    teamInfo: Map<String, TeamInfo>,
+    reportMessage: String?,
+    onReport: (String) -> Unit,
+    onDismissReportMessage: () -> Unit,
     onUpdate: (LoanEvent) -> Unit,
 ) {
     val isLoanerAuthority = user != null && user.isAuthority && user.teamId == loan.loanerTeamNumber
     val isBorrowerAuthority = user != null && user.isAuthority && user.teamId == loan.borrowerTeamNumber
     val isAuthority = isLoanerAuthority || isBorrowerAuthority
+    val loanerInfo = teamInfo[loan.loanerTeamNumber]
+    val borrowerInfo = teamInfo[loan.borrowerTeamNumber]
+    val loanerVerified = !verificationRequired || loanerInfo?.verified == true
+    val borrowerVerified = !verificationRequired || borrowerInfo?.verified == true
 
     Column(
         modifier = Modifier
@@ -142,17 +180,45 @@ private fun LoanDetailContent(
 
         HorizontalDivider()
 
+        Text("Team accounts", style = MaterialTheme.typography.titleMedium)
+        TeamClaimRow(
+            teamLabel = "Loaner #${loan.loanerTeamNumber}",
+            info = loanerInfo,
+            verificationRequired = verificationRequired,
+            onReport = { onReport(loan.loanerTeamNumber) },
+        )
+        TeamClaimRow(
+            teamLabel = "Borrower #${loan.borrowerTeamNumber}",
+            info = borrowerInfo,
+            verificationRequired = verificationRequired,
+            onReport = { onReport(loan.borrowerTeamNumber) },
+        )
+        reportMessage?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            TextButton(onClick = onDismissReportMessage) {
+                Text("Dismiss")
+            }
+        }
+
+        HorizontalDivider()
+
         Text("Coach confirmations", style = MaterialTheme.typography.titleMedium)
         CoachConfirmation(
             label = "Loaner coach (#${loan.loanerTeamNumber})",
             confirmed = loan.loanerCoachConfirmed,
-            canConfirm = isLoanerAuthority,
+            canConfirm = isLoanerAuthority && loanerVerified,
+            blockedByVerification = isLoanerAuthority && !loanerVerified,
             onConfirm = { onUpdate(loan.copy(loanerCoachConfirmed = true)) },
         )
         CoachConfirmation(
             label = "Borrower coach (#${loan.borrowerTeamNumber})",
             confirmed = loan.borrowerCoachConfirmed,
-            canConfirm = isBorrowerAuthority,
+            canConfirm = isBorrowerAuthority && borrowerVerified,
+            blockedByVerification = isBorrowerAuthority && !borrowerVerified,
             onConfirm = { onUpdate(loan.copy(borrowerCoachConfirmed = true)) },
         )
 
@@ -162,13 +228,15 @@ private fun LoanDetailContent(
         SignatureSection(
             title = "Loaner captain signature",
             base64 = loan.loanerSignature,
-            canSign = isLoanerAuthority,
+            canSign = isLoanerAuthority && loanerVerified,
+            blockedByVerification = isLoanerAuthority && !loanerVerified,
             onSigned = { bmp -> onUpdate(loan.copy(loanerSignature = bitmapToBase64(bmp))) },
         )
         SignatureSection(
             title = "Borrower captain signature",
             base64 = loan.borrowerSignature,
-            canSign = isBorrowerAuthority,
+            canSign = isBorrowerAuthority && borrowerVerified,
+            blockedByVerification = isBorrowerAuthority && !borrowerVerified,
             onSigned = { bmp -> onUpdate(loan.copy(borrowerSignature = bitmapToBase64(bmp))) },
         )
 
@@ -196,6 +264,7 @@ private fun CoachConfirmation(
     label: String,
     confirmed: Boolean,
     canConfirm: Boolean,
+    blockedByVerification: Boolean = false,
     onConfirm: () -> Unit,
 ) {
     Row(
@@ -207,6 +276,11 @@ private fun CoachConfirmation(
         when {
             confirmed -> Text("Confirmed", color = MaterialTheme.colorScheme.primary)
             canConfirm -> Button(onClick = onConfirm) { Text("Confirm") }
+            blockedByVerification -> Text(
+                "Paused until this team is verified",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
             else -> Text(
                 "Awaiting confirmation",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -221,6 +295,7 @@ private fun SignatureSection(
     title: String,
     base64: String,
     canSign: Boolean,
+    blockedByVerification: Boolean = false,
     onSigned: (android.graphics.Bitmap) -> Unit,
 ) {
     val existing = remember(base64) { base64ToBitmap(base64) }
@@ -276,11 +351,19 @@ private fun SignatureSection(
         }
 
         else -> {
-            Text(
-                "Awaiting signature",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
+            if (blockedByVerification) {
+                Text(
+                    "Signature paused until this team is verified",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            } else {
+                Text(
+                    "Awaiting signature",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }

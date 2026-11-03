@@ -1,5 +1,6 @@
 package za.org.team25310.ftcequipmenttracker.data.model
 
+import java.security.SecureRandom
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -83,6 +84,72 @@ data class AppUser(
         )
     }
 }
+
+data class TeamInvite(
+    val memberCode: String = "",
+    val coachCode: String = "",
+    val createdBy: String = "",
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L,
+) {
+    fun codeFor(role: Role): String = when (role) {
+        Role.COACH, Role.CAPTAIN -> coachCode
+        Role.MEMBER -> memberCode
+    }
+
+    fun toMap(): Map<String, Any?> = mapOf(
+        "memberCode" to memberCode,
+        "coachCode" to coachCode,
+        "createdBy" to createdBy,
+        "createdAt" to createdAt,
+        "updatedAt" to updatedAt,
+    )
+
+    companion object {
+        private const val ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        private const val CODE_LENGTH = 8
+
+        fun normalizeCode(value: String): String =
+            value.uppercase().filter { it.isLetterOrDigit() }
+
+        fun generateCode(): String {
+            val random = SecureRandom()
+            return buildString(CODE_LENGTH) {
+                repeat(CODE_LENGTH) { append(ALPHABET[random.nextInt(ALPHABET.length)]) }
+            }
+        }
+
+        fun newInvite(createdBy: String): TeamInvite {
+            val now = System.currentTimeMillis()
+            val member = generateCode()
+            var coach = generateCode()
+            while (coach == member) coach = generateCode()
+            return TeamInvite(
+                memberCode = member,
+                coachCode = coach,
+                createdBy = createdBy,
+                createdAt = now,
+                updatedAt = now,
+            )
+        }
+
+        fun fromMap(map: Map<String, Any?>): TeamInvite = TeamInvite(
+            memberCode = map["memberCode"] as? String ?: "",
+            coachCode = map["coachCode"] as? String ?: "",
+            createdBy = map["createdBy"] as? String ?: "",
+            createdAt = map["createdAt"] as? Long ?: 0L,
+            updatedAt = map["updatedAt"] as? Long ?: 0L,
+        )
+    }
+}
+
+data class TeamInfo(
+    val teamId: String = "",
+    val claimed: Boolean = false,
+    val claimedByEmail: String = "",
+    val claimedAt: Long = 0L,
+    val verified: Boolean = false,
+)
 
 data class LoanEvent(
     val id: String = "",

@@ -40,3 +40,6 @@ firebase-adminsdk-*.json
 *.jks
 *.keystore
 keystore.properties
+
+# Private manager runbook (never commit)
+MANAGER.md

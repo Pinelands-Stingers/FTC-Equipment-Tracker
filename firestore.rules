@@ -1,0 +1,308 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null
+        && request.auth.token.email_verified == true;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function invitePath(teamId) {
+      return /databases/$(database)/documents/teamInvites/$(teamId);
+    }
+
+    function verifiedPath(teamId) {
+      return /databases/$(database)/documents/verifiedTeams/$(teamId);
+    }
+
+    function securityConfigPath() {
+      return /databases/$(database)/documents/appConfig/security;
+    }
+
+    // The allowlist is opt-in: an organizer seeds verifiedTeams/{teamId} and
+    // flips appConfig/security.requireVerifiedTeams to true when ready.
+    function requireVerifiedTeams() {
+      return exists(securityConfigPath())
+        && get(securityConfigPath()).data.requireVerifiedTeams == true;
+    }
+
+    function isTeamVerified(teamId) {
+      return exists(verifiedPath(teamId));
+    }
+
+    function teamAccessAllowed(teamId) {
+      return !requireVerifiedTeams() || isTeamVerified(teamId);
+    }
+
+    function hasUserDoc() {
+      return isSignedIn() && exists(userPath(request.auth.uid));
+    }
+
+    function userTeamId() {
+      return get(userPath(request.auth.uid)).data.teamId;
+    }
+
+    function userRole() {
+      return get(userPath(request.auth.uid)).data.role;
+    }
+
+    function isTeamMember(teamId) {
+      return hasUserDoc() && userTeamId() == teamId;
+    }
+
+    function isTeamAuthority(teamId) {
+      return isTeamMember(teamId)
+        && (userRole() == 'COACH' || userRole() == 'CAPTAIN');
+    }
+
+    function isAuthorityOfAny(teamIds) {
+      return hasUserDoc()
+        && (userRole() == 'COACH' || userRole() == 'CAPTAIN')
+        && userTeamId() in teamIds;
+    }
+
+    function validInviteCodes() {
+      let d = request.resource.data;
+      return d.memberCode is string
+        && d.memberCode.size() == 8
+        && d.coachCode is string
+        && d.coachCode.size() == 8
+        && d.memberCode != d.coachCode
+        && d.createdBy is string
+        && d.createdAt is int
+        && d.updatedAt is int;
+    }
+
+    function validUserData() {
+      let d = request.resource.data;
+      return d.teamId is string
+        && d.teamId.size() > 0
+        && d.teamId.size() <= 20
+        && d.role in ['COACH', 'CAPTAIN', 'MEMBER']
+        && d.displayName is string
+        && d.displayName.size() > 0
+        && d.displayName.size() <= 80
+        && d.createdAt is int
+        && d.inviteCode is string
+        && d.inviteCode.size() >= 6
+        && d.inviteCode.size() <= 16;
+    }
+
+    function validLoanData() {
+      let d = request.resource.data;
+      return d.partName is string
+        && d.partName.size() > 0
+        && d.partName.size() <= 200
+        && d.sku is string
+        && d.sku.size() <= 80
+        && d.vendor is string
+        && d.vendor.size() <= 40
+        && d.loanerTeamNumber is string
+        && d.loanerTeamNumber.size() <= 20
+        && d.loanerTeamName is string
+        && d.loanerTeamName.size() <= 120
+        && d.borrowerTeamNumber is string
+        && d.borrowerTeamNumber.size() <= 20
+        && d.borrowerTeamName is string
+        && d.borrowerTeamName.size() <= 120
+        && d.teamIds is list
+        && d.teamIds.size() >= 1
+        && d.teamIds.size() <= 10
+        && d.loanDate is int
+        && d.dueDate is int
+        && d.location is string
+        && d.location.size() <= 200
+        && d.notes is string
+        && d.notes.size() <= 2000
+        && d.photoBase64 is string
+        && d.photoBase64.size() <= 2000000
+        && d.status in ['DRAFT', 'PENDING_CONFIRMATION', 'ACTIVE', 'RETURNED', 'OVERDUE', 'CANCELLED']
+        && d.loanerCoachConfirmed is bool
+        && d.borrowerCoachConfirmed is bool
+        && d.loanerSignature is string
+        && d.loanerSignature.size() <= 1000000
+        && d.borrowerSignature is string
+        && d.borrowerSignature.size() <= 1000000
+        && d.createdBy is string
+        && d.createdBy.size() <= 320
+        && d.createdAt is int;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && validUserData()
+        && request.resource.data.keys().hasOnly(
+             ['teamId', 'role', 'displayName', 'createdAt', 'inviteCode'])
+        && exists(invitePath(request.resource.data.teamId))
+        && teamAccessAllowed(request.resource.data.teamId)
+        && (
+             get(invitePath(request.resource.data.teamId)).data.createdBy == request.auth.uid
+             || request.resource.data.inviteCode == (
+                  request.resource.data.role == 'MEMBER'
+                    ? get(invitePath(request.resource.data.teamId)).data.memberCode
+                    : get(invitePath(request.resource.data.teamId)).data.coachCode
+                )
+           );
+
+      allow update, delete: if false;
+    }
+
+    // Non-secret team registry so the onboarding screen can tell whether a
+    // team has already been claimed without exposing the invite codes.
+    match /teamDirectory/{teamId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['createdBy', 'createdByEmail', 'createdAt'])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdByEmail is string
+        && request.resource.data.createdByEmail == request.auth.token.email
+        && request.resource.data.createdAt is int
+        && teamAccessAllowed(teamId);
+
+      allow update, delete: if false;
+    }
+
+    match /teamInvites/{teamId} {
+      // Codes are hidden from everyone except the team's own leadership (and
+      // the person who first created the team, so setup can be resumed).
+      allow get: if isSignedIn()
+        && (
+             resource == null
+             || resource.data.createdBy == request.auth.uid
+             || isTeamAuthority(teamId)
+           );
+
+      allow list: if false;
+
+      allow create: if isSignedIn()
+        && validInviteCodes()
+        && request.resource.data.createdBy == request.auth.uid
+        && teamAccessAllowed(teamId);
+
+      allow update: if isSignedIn()
+        && isTeamAuthority(teamId)
+        && validInviteCodes()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && teamAccessAllowed(teamId);
+
+      allow delete: if false;
+    }
+
+    match /loans/{loanId} {
+      allow read: if isSignedIn()
+        && hasUserDoc()
+        && userTeamId() in resource.data.teamIds;
+
+      allow create: if isSignedIn()
+        && hasUserDoc()
+        && validLoanData()
+        && userTeamId() in request.resource.data.teamIds;
+
+      allow update: if isSignedIn()
+        && hasUserDoc()
+        && userTeamId() in resource.data.teamIds
+        && request.resource.data.teamIds == resource.data.teamIds
+        && request.resource.data.loanerTeamNumber == resource.data.loanerTeamNumber
+        && request.resource.data.borrowerTeamNumber == resource.data.borrowerTeamNumber
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validLoanData()
+        // Only that side's coach/captain may confirm it or sign for it, and
+        // only while that team is verified (when enforcement is enabled).
+        && (
+             !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['loanerCoachConfirmed', 'loanerSignature'])
+             || (
+                  isTeamAuthority(resource.data.loanerTeamNumber)
+                  && teamAccessAllowed(resource.data.loanerTeamNumber)
+                )
+           )
+        && (
+             !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['borrowerCoachConfirmed', 'borrowerSignature'])
+             || (
+                  isTeamAuthority(resource.data.borrowerTeamNumber)
+                  && teamAccessAllowed(resource.data.borrowerTeamNumber)
+                )
+           )
+        // Status changes (confirm -> active, mark returned) need an authority.
+        && (
+             !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['status'])
+             || isAuthorityOfAny(resource.data.teamIds)
+           );
+
+      allow delete: if isSignedIn()
+        && isAuthorityOfAny(resource.data.teamIds);
+    }
+
+    match /partAliases/{aliasId} {
+      allow read, delete: if isSignedIn()
+        && hasUserDoc()
+        && resource.data.teamId == userTeamId();
+
+      allow create, update: if isSignedIn()
+        && hasUserDoc()
+        && request.resource.data.teamId == userTeamId()
+        && request.resource.data.partId is string
+        && request.resource.data.partId.size() <= 200
+        && request.resource.data.aliases is list
+        && request.resource.data.aliases.size() <= 20
+        && request.resource.data.updatedAt is int;
+    }
+
+    // Organizer-managed security toggle. Only the admin SDK writes this.
+    match /appConfig/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Organizer-managed allowlist. Only the admin SDK writes this.
+    match /verifiedTeams/{teamId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // In-app problem reports. Organizers review these out-of-band.
+    match /teamReports/{reportId} {
+      allow create: if isSignedIn()
+        && hasUserDoc()
+        && request.resource.data.keys().hasOnly(
+             ['teamId', 'reportedByUid', 'reportedByEmail', 'reason', 'status', 'createdAt'])
+        && request.resource.data.teamId is string
+        && request.resource.data.teamId.size() > 0
+        && request.resource.data.teamId.size() <= 20
+        && request.resource.data.reportedByUid == request.auth.uid
+        && request.resource.data.reportedByEmail == request.auth.token.email
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 10
+        && request.resource.data.reason.size() <= 1000
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt is int;
+
+      allow read, update, delete: if false;
+    }
+
+    // Public catalog data. Writes only happen through the admin SDK
+    // (tools/catalog/seed_firestore.py), which bypasses these rules.
+    match /parts/{partId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /catalogMeta/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

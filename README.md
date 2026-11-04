@@ -47,7 +47,7 @@ This section is for team members, coaches, and captains.
 
 ### Install the app
 
-Your coach or organizer will share the APK file. To install it:
+Your coach or organizer will share the APK file, or you can download the latest version from releases on the Github repository. To install it:
 
 1. Open the APK on your phone.
 2. If Android asks, allow your browser or file manager to install unknown apps.
@@ -70,7 +70,7 @@ email**. You must verify your email before you can continue.
 
 After verifying your email, the app asks you to choose your team and role.
 
-**If nobody from your team has used the app yet:**
+**If nobody from your team has used the app yet, and you are a coach or captain:**
 
 1. Select your team from the list.
 2. Choose **Coach** or **Captain**. (Only a coach or captain can create a team.)
